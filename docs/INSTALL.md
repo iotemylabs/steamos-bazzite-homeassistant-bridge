@@ -3,12 +3,36 @@
 The bridge is a pure-Python user-level daemon: no root, no layered packages,
 survives SteamOS/Bazzite OS updates.
 
-## SteamOS (Steam Deck) / Bazzite
+## Scripted install (recommended)
+
+From a Desktop Mode terminal or SSH session on the device:
 
 ```bash
-# 1. Install (pipx ships on both; uv also works)
-pipx install steamdeck-bridge          # or: uv tool install steamdeck-bridge
-# from a git checkout instead:  pipx install /path/to/steamos-hass-agent
+curl -fsSL https://raw.githubusercontent.com/iotemylabs/steamos-bazzite-homeassistant-bridge/main/install.sh | bash
+```
+
+or from a checkout: `./install.sh`. Flags for automation:
+
+```
+--mqtt-host HOST      MQTT broker (omit or --no-mqtt for REST/WS only)
+--mqtt-user USER      broker username
+--mqtt-pass PASS      broker password
+--device-id ID        unique per device (default: steamdeck)
+--device-name NAME    shown in Home Assistant (default: Steam Deck)
+--uninstall           stop + remove the service and package
+```
+
+The script installs via pipx (or uv), writes
+`~/.config/steamdeck-bridge/config.toml` (kept if it already exists), installs
+the systemd user unit, starts it, and prints the API token. Re-running is safe —
+it upgrades in place.
+
+## Manual install
+
+```bash
+# 1. Install (pipx ships on both SteamOS and Bazzite; uv also works)
+pipx install "git+https://github.com/iotemylabs/steamos-bazzite-homeassistant-bridge.git"
+# from a git checkout instead:  pipx install /path/to/checkout
 
 # 2. Configure
 mkdir -p ~/.config/steamdeck-bridge
@@ -64,8 +88,10 @@ deck.example.lan {
 
 ## Upgrading
 
+Re-run the install script (safe, keeps your config), or manually:
+
 ```bash
-pipx upgrade steamdeck-bridge
+pipx install --force "git+https://github.com/iotemylabs/steamos-bazzite-homeassistant-bridge.git"
 systemctl --user restart steamdeck-bridge
 ```
 

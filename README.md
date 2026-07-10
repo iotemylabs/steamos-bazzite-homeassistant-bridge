@@ -24,20 +24,24 @@ Gamescope, Steam, EmuDeck, Heroic, and Lutris.
 
 ## Quick start (on the device)
 
-```bash
-# SteamOS / Bazzite — no root, survives OS updates
-pipx install steamdeck-bridge   # or: uv tool install steamdeck-bridge
-mkdir -p ~/.config/steamdeck-bridge
-cp config/config.example.toml ~/.config/steamdeck-bridge/config.toml
-$EDITOR ~/.config/steamdeck-bridge/config.toml   # set MQTT broker
+One command, in a Desktop Mode terminal (Konsole) or over SSH — no root,
+survives OS updates:
 
-mkdir -p ~/.config/systemd/user
-cp systemd/steamdeck-bridge.service ~/.config/systemd/user/
-systemctl --user enable --now steamdeck-bridge
+```bash
+curl -fsSL https://raw.githubusercontent.com/iotemylabs/steamos-bazzite-homeassistant-bridge/main/install.sh | bash
 ```
 
-Entities appear in Home Assistant automatically once MQTT connects. Full guide:
-[docs/INSTALL.md](docs/INSTALL.md) · [docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md).
+The installer asks for your MQTT broker and device name, installs the daemon
+with pipx/uv, and enables the `steamdeck-bridge` user service. Non-interactive:
+
+```bash
+./install.sh --mqtt-host 10.0.0.5 --mqtt-user ha --mqtt-pass secret \
+             --device-id deck-livingroom --device-name "Living Room Deck"
+```
+
+Entities appear in Home Assistant automatically once MQTT connects. Manual
+steps, upgrades, and uninstall: [docs/INSTALL.md](docs/INSTALL.md) ·
+HA media player + automations: [docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md).
 
 ## Try it
 

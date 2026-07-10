@@ -34,7 +34,9 @@ dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.4"]
 steamdeck-bridge = "steamdeck_bridge.__main__:main"
 
 [project.urls]
-Documentation = "https://github.com/iotemylabs/steamos-hass-agent"
+Homepage = "https://github.com/iotemylabs/steamos-bazzite-homeassistant-bridge"
+Documentation = "https://github.com/iotemylabs/steamos-bazzite-homeassistant-bridge/tree/main/docs"
+Issues = "https://github.com/iotemylabs/steamos-bazzite-homeassistant-bridge/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/steamdeck_bridge"]

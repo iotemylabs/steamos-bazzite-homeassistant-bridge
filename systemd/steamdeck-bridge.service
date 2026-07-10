@@ -1,6 +1,6 @@
 [Unit]
 Description=SteamOS/Bazzite Home Assistant bridge
-Documentation=https://github.com/iotemylabs/steamos-hass-agent
+Documentation=https://github.com/iotemylabs/steamos-bazzite-homeassistant-bridge
 After=network-online.target
 Wants=network-online.target
 
