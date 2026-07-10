@@ -11,7 +11,14 @@ From a Desktop Mode terminal or SSH session on the device:
 curl -fsSL https://raw.githubusercontent.com/iotemylabs/steamos-bazzite-homeassistant-bridge/main/install.sh | bash
 ```
 
-or from a checkout: `./install.sh`. Flags for automation:
+or from a checkout: `./install.sh`.
+
+> **Private repo?** The raw URL above requires the repository to be public.
+> While it's private, clone with authenticated git and run the script locally:
+> `git clone https://github.com/iotemylabs/steamos-bazzite-homeassistant-bridge.git && cd steamos-bazzite-homeassistant-bridge && ./install.sh`
+> (the script detects the checkout and installs from it directly).
+
+Flags for automation:
 
 ```
 --mqtt-host HOST      MQTT broker (omit or --no-mqtt for REST/WS only)
