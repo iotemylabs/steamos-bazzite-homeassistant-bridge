@@ -1,0 +1,17 @@
+[Unit]
+Description=SteamOS/Bazzite Home Assistant bridge
+Documentation=https://github.com/iotemylabs/steamos-hass-agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+# pipx/uv tool install puts the entry point in ~/.local/bin
+ExecStart=%h/.local/bin/steamdeck-bridge
+Restart=on-failure
+RestartSec=5
+# The bridge must see the gamescope X display and /proc of the session.
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

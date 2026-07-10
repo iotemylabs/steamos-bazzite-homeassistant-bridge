@@ -1,0 +1,49 @@
+# steamdeck-bridge configuration
+# Copy to ~/.config/steamdeck-bridge/config.toml
+# Values can be overridden with SDB_* environment variables (SDB_MQTT_HOST, ...).
+
+[device]
+# Unique per device; used in MQTT topics and HA device identity.
+id = "steamdeck"
+name = "Steam Deck"
+
+[detection]
+# Poll interval in seconds for the detection loop.
+interval = 2.0
+# Extra directories treated as EmuDeck-style ROM roots for platform inference.
+rom_roots = ["~/Emulation/roms", "/run/media/mmcblk0p1/Emulation/roms"]
+
+[http]
+# Bind address. Keep 127.0.0.1 unless you front it with a reverse proxy or
+# explicitly want LAN access (then use the token + consider TLS via a proxy).
+host = "127.0.0.1"
+port = 8480
+# Bearer token for REST/WS. Auto-generated on first run if empty.
+token = ""
+
+[mqtt]
+enabled = true
+host = "homeassistant.local"
+port = 1883
+username = ""
+password = ""
+# Base topic; entities appear under <base>/<device_id>/...
+base_topic = "steamdeck_bridge"
+# Home Assistant discovery prefix (default matches HA's default).
+discovery_prefix = "homeassistant"
+
+[artwork]
+# Disk cache for fetched artwork.
+cache_dir = "~/.cache/steamdeck-bridge/artwork"
+# Optional SteamGridDB API key (https://www.steamgriddb.com/profile/preferences/api)
+steamgriddb_api_key = ""
+# Allow fetching from Steam CDN / SteamGridDB (set false for fully offline).
+allow_remote = true
+
+[actions]
+# Master switch for remote power/launch control.
+enabled = true
+# Individually disable actions if desired.
+allow_power = true      # suspend / shutdown / reboot
+allow_launch = true     # launch_game / close_game / switch_game
+allow_steam_restart = true
