@@ -53,7 +53,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8480/api/state | jq
 {
   "game": {
     "title": "The Legend of Zelda: Tears of the Kingdom",
-    "source": "shortcut", "platform": "Nintendo Switch", "emulator": "ryujinx",
+    "source": "shortcut", "platform": "Nintendo Switch", "emulator": "Ryujinx",
     "shortcut_appid": 2837219845, "started_at": "2026-07-10T18:02:11Z",
     "duration_s": 1843
   },

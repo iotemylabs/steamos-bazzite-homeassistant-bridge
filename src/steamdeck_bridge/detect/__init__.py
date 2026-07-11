@@ -49,14 +49,14 @@ class DetectionPipeline:
         """Return the enriched current game session, or None when idle."""
         # 1. gamescope atom
         appid = self.gamescope.focused_appid()
-        if appid == 0:
-            # Gaming Mode with steamui focused. A game may still be running
-            # in the background; prefer "nothing focused" = no active game.
-            return None
-        if appid is not None:
+        if appid:
             return self._enrich_steam_appid(appid, source_hint="gamescope")
+        # appid == 0 means steamui is focused (home menu / Steam overlay) —
+        # the game may still be running behind it, so fall through to the
+        # process scan rather than reporting "no game" mid-session.
 
-        # 2. reaper process scan (desktop mode, or gamescope unreachable)
+        # 2. reaper process scan (desktop mode, home-menu overlay, or
+        #    gamescope unreachable)
         running = self.process.running()
         if running is not None:
             return self._enrich_steam_appid(
@@ -133,7 +133,9 @@ class DetectionPipeline:
             session.source = GameSource.SHORTCUT
             session.shortcut_appid = appid_u32
             if shortcut is not None:
-                session.title = shortcut.app_name
+                # The shortcut name is SRM/EmuDeck's curated title — better
+                # than anything derived from the ROM filename (eboot.bin...).
+                session.title = shortcut.app_name or shortcut.rom_title
                 session.steam_title = shortcut.app_name
                 session.exe = shortcut.exe
                 session.launch_command = session.launch_command or shortcut.launch_options
@@ -142,8 +144,6 @@ class DetectionPipeline:
                 session.is_srm_shortcut = shortcut.is_srm_style
                 session.rom_title = shortcut.rom_title
                 session.platform = shortcut.platform or "Non-Steam"
-                if shortcut.rom_title:
-                    session.title = shortcut.rom_title
             else:
                 session.title = f"Non-Steam app {appid_u32}"
                 session.platform = "Non-Steam"

@@ -128,6 +128,17 @@ def shortcut_rungameid(appid_u32: int) -> int:
     return (appid_u32 << 32) | 0x02000000
 
 
+def child_pids(pid: int, proc: Path = Path("/proc")) -> list[int]:
+    """Direct children of a process, via /proc/<pid>/task/<pid>/children."""
+    try:
+        text = (proc / str(pid) / "task" / str(pid) / "children").read_text(
+            encoding="ascii"
+        )
+        return [int(p) for p in text.split()]
+    except (OSError, ValueError):
+        return []
+
+
 class Actions:
     """Fixed allowlist of device actions. Nothing here ever executes
     caller-supplied strings as shell."""
@@ -161,19 +172,26 @@ class Actions:
         return self._steam_url(f"steam://rungameid/{rungameid}")
 
     def close_game(self, pid: int | None) -> bool:
-        """SIGTERM to the game's process group; Steam's reaper cleans up."""
+        """SIGTERM the game itself and let Steam's reaper clean up, returning
+        the user to the game's library page.
+
+        `pid` is the reaper wrapper; never signal its *process group* — in
+        Gaming Mode that group belongs to the Steam session, and killing it
+        restarts the whole gamescope session. Signal the reaper's children
+        (the actual game / Proton wrapper) instead."""
         if not (self.config.enabled and self.config.allow_launch) or not pid:
             return False
-        try:
-            os.killpg(os.getpgid(pid), signal.SIGTERM)
-            return True
-        except (OSError, PermissionError) as e:
-            log.error("close_game(%s) failed: %s", pid, e)
+        targets = child_pids(pid) or [pid]
+        ok = False
+        for target in targets:
             try:
-                os.kill(pid, signal.SIGTERM)
-                return True
-            except OSError:
-                return False
+                os.kill(target, signal.SIGTERM)
+                ok = True
+            except OSError as e:
+                log.warning("close_game: SIGTERM %s failed: %s", target, e)
+        if not ok:
+            log.error("close_game(%s): no signalable process found", pid)
+        return ok
 
     def switch_game(self, appid: int, current_pid: int | None) -> bool:
         # Steam brings the new game forward; closing the old one first avoids

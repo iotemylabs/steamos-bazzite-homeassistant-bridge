@@ -53,7 +53,7 @@ def test_srm_style_detection():
     }])
     sc = parse_shortcuts(blob)[0]
     assert sc.is_srm_style
-    assert sc.emulator == "retroarch"
+    assert sc.emulator == "RetroArch"
     assert sc.platform == "Super Nintendo"
     assert sc.rom_title == "Super Mario World"
 
@@ -93,3 +93,143 @@ def test_missing_appid_falls_back_to_crc():
 
 def test_garbage_blob_returns_empty():
     assert parse_shortcuts(b"\x00not a vdf") == []
+
+
+# --- regression tests from on-device reports (EmuDeck launch styles) ---------
+
+
+def shortcut_for(exe: str, options: str, name: str = "Game"):
+    blob = make_blob([{
+        "appid": -12345,
+        "AppName": name,
+        "Exe": f'"{exe}"',
+        "LaunchOptions": options,
+    }])
+    return parse_shortcuts(blob)[0]
+
+
+def test_rpcs3_flatpak_ps3_eboot():
+    sc = shortcut_for(
+        "/usr/bin/flatpak",
+        'run --branch=stable --command=rpcs3 net.rpcs3.RPCS3 --no-gui '
+        '"/run/media/mmcblk0p1/Emulation/roms/ps3/Demons Souls/PS3_GAME/USRDIR/EBOOT.BIN"',
+        name="Demon's Souls",
+    )
+    assert sc.emulator == "RPCS3"
+    assert sc.platform == "Sony PlayStation 3"
+    assert sc.rom_title == "Demons Souls"  # eboot.bin -> game directory name
+
+
+def test_shadps4_appimage_ps4_eboot():
+    sc = shortcut_for(
+        "/home/deck/Applications/Shadps4-qt.AppImage",
+        '-g "/home/deck/Emulation/roms/ps4/Bloodborne/eboot.bin"',
+        name="Bloodborne",
+    )
+    assert sc.emulator == "shadPS4"
+    assert sc.platform == "Sony PlayStation 4"
+    assert sc.rom_title == "Bloodborne"
+
+
+def test_emudeck_launcher_script_ryujinx():
+    sc = shortcut_for(
+        "/home/deck/Emulation/tools/launchers/ryujinx.sh",
+        '"/home/deck/Emulation/roms/switch/Game v1.0.nsp"',
+    )
+    assert sc.emulator == "Ryujinx"
+    assert sc.platform == "Nintendo Switch"
+
+
+def test_duckstation_flatpak_ps1():
+    sc = shortcut_for(
+        "/usr/bin/flatpak",
+        'run org.duckstation.DuckStation -batch '
+        '"/home/deck/Emulation/roms/psx/Tekken 3 (USA).chd"',
+    )
+    assert sc.emulator == "DuckStation"
+    assert sc.platform == "Sony PlayStation 1"
+    assert sc.rom_title == "Tekken 3"
+
+
+def test_duckstation_default_platform_without_roms_folder():
+    sc = shortcut_for(
+        "/usr/bin/duckstation-qt",
+        '-batch "/data/games/classics/Tekken 3.chd"',
+    )
+    assert sc.emulator == "DuckStation"
+    assert sc.platform == "Sony PlayStation 1"  # emulator default kicks in
+
+
+def test_ppsspp_flatpak_psp():
+    sc = shortcut_for(
+        "/usr/bin/flatpak",
+        'run org.ppsspp.PPSSPP "/home/deck/Emulation/roms/psp/Lumines (USA).cso"',
+    )
+    assert sc.emulator == "PPSSPP"
+    assert sc.platform == "Sony PlayStation Portable"
+
+
+def test_xemu_xbox():
+    sc = shortcut_for(
+        "/usr/bin/flatpak",
+        'run app.xemu.xemu -dvd_path "/home/deck/Emulation/roms/xbox/Halo (USA).xiso"',
+    )
+    assert sc.emulator == "xemu"
+    assert sc.platform == "Microsoft Xbox"
+
+
+def test_xenia_xbox360_via_proton():
+    sc = shortcut_for(
+        "/home/deck/Emulation/tools/launchers/xenia.sh",
+        '"/home/deck/Emulation/roms/xbox360/Halo 3 (USA).xex"',
+    )
+    assert sc.emulator == "Xenia"
+    assert sc.platform == "Microsoft Xbox 360"
+
+
+def test_xenia_xbla_appends_live_arcade():
+    sc = shortcut_for(
+        "/home/deck/Emulation/tools/launchers/xenia.sh",
+        '"/home/deck/Emulation/roms/xbox360/roms/XBLA/Castle Crashers/000D0000/584109C1"',
+    )
+    assert sc.emulator == "Xenia"
+    assert sc.platform == "Microsoft Xbox 360 Live Arcade"
+
+
+def test_wii_unknown_extension_still_gets_platform():
+    sc = shortcut_for(
+        "/usr/bin/dolphin-emu",
+        '-b -e "/home/deck/Emulation/roms/wii/Mario Galaxy.nkit.gcz"',
+    )
+    assert sc.emulator == "Dolphin"
+    assert sc.platform == "Nintendo Wii"  # /roms/ fallback, extension unknown
+
+
+def test_azahar_3ds():
+    sc = shortcut_for(
+        "/usr/bin/flatpak",
+        'run org.azahar_emu.Azahar "/home/deck/Emulation/roms/3ds/Game (EUR).3ds"',
+    )
+    assert sc.emulator == "Azahar"
+    assert sc.platform == "Nintendo 3DS"
+
+
+def test_retroarch_flatpak_with_core():
+    sc = shortcut_for(
+        "/usr/bin/flatpak",
+        'run org.libretro.RetroArch -L '
+        '"/var/lib/flatpak/app/org.libretro.RetroArch/x86_64/stable/active/'
+        'files/lib/retroarch/cores/snes9x_libretro.so" '
+        '"/home/deck/Emulation/roms/snes/Super Metroid (USA).sfc"',
+    )
+    assert sc.emulator == "RetroArch"
+    assert sc.platform == "Super Nintendo"
+
+
+def test_retroarch_core_platform_fallback_without_roms_folder():
+    sc = shortcut_for(
+        "/usr/bin/retroarch",
+        '-L "/home/deck/cores/mupen64plus_next_libretro.so" "/data/n64stuff/Game.z64"',
+    )
+    assert sc.emulator == "RetroArch"
+    assert sc.platform == "Nintendo 64"  # from the libretro core name

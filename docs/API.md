@@ -39,7 +39,7 @@ Current game + device state. `game` is `null` when idle.
     "steam_title": "Super Mario World",
     "rom_title": "Super Mario World",
     "platform": "Super Nintendo",
-    "emulator": "retroarch",
+    "emulator": "RetroArch",
     "is_emulator": true,
     "is_srm_shortcut": true,          // AppID matches the SRM/BoilR CRC derivation
     "exe": "/usr/bin/retroarch",
@@ -69,7 +69,7 @@ Installed Steam apps and non-Steam shortcuts.
 {
   "steam":     [ { "appid": 632470, "name": "Disco Elysium", "installdir": "Disco Elysium" } ],
   "shortcuts": [ { "appid": 2593523916, "name": "Super Mario World", "exe": "/usr/bin/retroarch",
-                   "emulator": "retroarch", "platform": "Super Nintendo",
+                   "emulator": "RetroArch", "platform": "Super Nintendo",
                    "rom_title": "Super Mario World", "rungameid": 11139150900937490432 } ]
 }
 ```
