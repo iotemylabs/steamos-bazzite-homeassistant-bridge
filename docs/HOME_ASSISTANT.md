@@ -89,6 +89,33 @@ above. Fine for dashboards, fewer controls.
 > set `[http] host = "0.0.0.0"` (token still required), or keep it local-only
 > and put caddy/nginx in front for TLS — see INSTALL.md.
 
+## "Now Playing" dashboard card
+
+[dashboards/now_playing_card.yaml](../dashboards/now_playing_card.yaml) is a
+ready-made [custom:button-card](https://github.com/custom-cards/button-card)
+(HACS) tile: dimmed hero/box-art background, game title, platform + emulator,
+who's playing and for how long, and — for emulated titles — a small console
+icon badge sourced from the [RomM](https://github.com/rommapp/romm) project's
+icon set (every icon URL in the card was verified against RomM's live repo;
+the one or two platforms it doesn't ship an icon for just omit the badge
+instead of showing a broken image).
+
+Setup:
+
+1. Open the YAML file, set `variables.base_url` to an address **your browser**
+   can reach the bridge at (not `127.0.0.1` — Lovelace renders client-side) and
+   `variables.token` to the `[http] token` from `config.toml`.
+2. If your `[device] id` isn't `steamdeck`, find/replace it in the entity IDs.
+3. Dashboard → Edit → Add Card → Manual → paste the YAML.
+4. Duplicate the card per device for a multi-Deck dashboard.
+
+Artwork is served by *your* bridge's own resolution chain (Steam cache → grid
+overrides → Heroic → SteamGridDB → CDN), so a configured
+`steamgriddb_api_key` benefits this card automatically — the key never leaves
+the bridge. The RomM console icons are hotlinked directly from GitHub; if you'd
+rather not depend on that, copy the SVGs/ICOs into your own `www/` folder and
+swap the `raw.githubusercontent.com` base URL in the `controller` field.
+
 ## Wake from suspend
 
 A suspended daemon can't wake itself; use HA's

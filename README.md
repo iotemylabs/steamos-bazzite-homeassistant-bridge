@@ -68,7 +68,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8480/api/state | jq
 | [docs/RESEARCH.md](docs/RESEARCH.md) | Detection surfaces research (gamescope atoms, VDFs, launchers) |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Design, security model, go-hass-agent decision |
 | [docs/API.md](docs/API.md) | REST / WebSocket / MQTT specification |
-| [docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md) | Entities, media player setup, automations |
+| [docs/HOME_ASSISTANT.md](docs/HOME_ASSISTANT.md) | Entities, media player setup, automations, "Now Playing" dashboard card |
 | [docs/INSTALL.md](docs/INSTALL.md) | Installation on SteamOS / Bazzite / generic Linux |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | MVP scope, v0.2/v0.3, stretch goals |
 

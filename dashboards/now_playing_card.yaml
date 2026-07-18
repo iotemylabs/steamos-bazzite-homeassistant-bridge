@@ -1,0 +1,204 @@
+# ==============================================================================
+# steamdeck-bridge — "Now Playing" Lovelace card
+# ==============================================================================
+#
+# Requires the HACS frontend card: custom:button-card
+#   https://github.com/custom-cards/button-card
+#
+# Setup:
+#   1. Replace ENTITY IDs below (search "steamdeck") with your [device] id
+#      from config.toml, if it isn't "steamdeck".
+#   2. Fill in `variables.base_url` (host:port your BROWSER can reach the
+#      bridge at — not 127.0.0.1, since Lovelace renders in your browser, not
+#      on the Deck) and `variables.token` (the [http] token from config.toml).
+#   3. Add as a manual card (dashboard → Edit → Add Card → Manual), paste this.
+#   4. Duplicate the whole card per device for a multi-Deck dashboard.
+#
+# What it shows:
+#   - Background: the current game's hero/header/capsule artwork, resolved by
+#     YOUR bridge (Steam cache → grid overrides → Heroic → SteamGridDB → CDN —
+#     see docs/RESEARCH.md §4). The SteamGridDB API key, if you set one, stays
+#     server-side in config.toml; this card never talks to SteamGridDB itself.
+#   - Avatar badge: the game's icon art, falling back to a 🎮 glyph.
+#   - Title / platform / emulator / who's playing / session length.
+#   - Bottom-right badge: a console icon from the RomM project's icon set
+#     (https://github.com/rommapp/romm/tree/master/frontend/assets/platforms),
+#     shown only for emulated (non-Steam, non-native) titles. Every URL below
+#     was checked against the live repo before being used here; a handful of
+#     platforms RomM doesn't ship an icon for (Neo Geo Pocket, ScummVM) just
+#     omit the badge instead of showing a broken image.
+#
+# Security note: the token is embedded in this dashboard's YAML and visible to
+# anyone with access to your Lovelace config / browser dev tools. That's the
+# same tradeoff docs/HOME_ASSISTANT.md already documents for the media-player
+# artwork URL. Keep the bridge on your LAN only, and use a dedicated
+# low-privilege network if that's a concern.
+#
+type: custom:button-card
+entity: sensor.steamdeck_current_game
+show_icon: false
+show_state: false
+show_name: false
+variables:
+  base_url: "http://STEAMDECK_IP:8480" # bridge REST endpoint, reachable from your browser
+  token: "YOUR_BRIDGE_TOKEN" # [http] token from ~/.config/steamdeck-bridge/config.toml
+  device_name: "Steam Deck" # shown when idle
+styles:
+  card:
+    - position: relative
+    - overflow: hidden
+    - border-radius: 12px
+    - background: "#111"
+    - height: 190px
+custom_fields:
+  bg: |
+    [[[
+      const g = entity.attributes || {};
+      const appid = g.appid || g.shortcut_appid;
+      if (!appid) return "";
+      const url = (kind) => `${variables.base_url}/api/artwork/${appid}/${kind}?token=${variables.token}`;
+      // Try hero (widescreen) first; non-Steam shortcuts often only have a
+      // grid-override capsule, so fall back through header -> capsule rather
+      // than showing nothing.
+      return `<img src="${url('hero')}"
+                   data-fallbacks="${url('header')}|${url('capsule')}"
+                   onerror="
+                     var f=(this.dataset.fallbacks||'').split('|').filter(Boolean);
+                     if (f.length) { this.src = f.shift(); this.dataset.fallbacks = f.join('|'); }
+                     else { this.style.display='none'; }
+                   "
+                   style="width:100%;height:100%;object-fit:cover;
+                          filter:brightness(0.35) saturate(1.1);">`;
+    ]]]
+  content: |
+    [[[
+      const g = entity.attributes || {};
+      const playing = !!g.title;
+      const appid = g.appid || g.shortcut_appid;
+
+      const userEnt = states['sensor.steamdeck_steam_user'];
+      const modeEnt = states['sensor.steamdeck_session_mode'];
+      const durEnt  = states['sensor.steamdeck_session_duration'];
+
+      let durText = "";
+      if (durEnt && !isNaN(parseInt(durEnt.state, 10))) {
+        const s = parseInt(durEnt.state, 10);
+        const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+        durText = h > 0 ? `${h}h ${m}m` : `${m}m`;
+      }
+
+      const iconUrl = appid
+        ? `${variables.base_url}/api/artwork/${appid}/icon?token=${variables.token}`
+        : "";
+      const avatar = iconUrl
+        ? `<img src="${iconUrl}"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                style="width:64px;height:64px;border-radius:50%;border:2px solid #fff;
+                       object-fit:cover;background:#333;">
+           <div style="display:none;width:64px;height:64px;border-radius:50%;
+                       border:2px solid #fff;background:#333;align-items:center;
+                       justify-content:center;font-size:1.8em;">🎮</div>`
+        : `<div style="width:64px;height:64px;border-radius:50%;border:2px solid #fff;
+                       background:#333;display:flex;align-items:center;
+                       justify-content:center;font-size:1.8em;">🎮</div>`;
+
+      const subtitle = playing
+        ? [g.platform, g.emulator].filter(Boolean).join(" · ")
+        : (modeEnt ? modeEnt.state : "");
+
+      const who = userEnt && userEnt.state && userEnt.state !== "none" ? userEnt.state : "";
+
+      return `
+        <div style="position:absolute;top:48%;left:50%;transform:translate(-50%,-48%);
+                    z-index:1;display:flex;flex-direction:column;
+                    align-items:center;gap:6px;text-align:center;">
+          ${avatar}
+          <div style="font-size:1.15em;font-weight:bold;color:#fff;max-width:260px;
+                      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            ${playing ? g.title : variables.device_name}
+          </div>
+          <div style="font-size:0.9em;color:#ccc;">${subtitle}</div>
+          ${playing ? `<div style="color:#fff;font-size:0.9em;margin-top:2px;">
+                         🎮 Now Playing${who ? " · " + who : ""}${durText ? " · " + durText : ""}
+                       </div>` : ""}
+        </div>`;
+    ]]]
+  controller: |
+    [[[
+      const g = entity.attributes || {};
+      if (!g.is_emulator || !g.platform) return "";
+
+      // Verified against https://github.com/rommapp/romm/tree/master/frontend/assets/platforms
+      // (checked individually; platforms with no icon there are simply
+      // omitted below and the badge hides itself via onerror).
+      const ICONS = {
+        "Nintendo 3DS": "3ds.svg",
+        "Commodore Amiga": "amiga.svg",
+        "Arcade": "arcade.svg",
+        "Atari 2600": "atari2600.svg",
+        "Atari 7800": "atari7800.svg",
+        "Atari Lynx": "lynx.svg",
+        "Sega Dreamcast": "dc.svg",
+        "Sega Game Gear": "gamegear.svg",
+        "Game Boy": "gb.svg",
+        "Game Boy Advance": "gba.svg",
+        "Game Boy Color": "gbc.svg",
+        "Nintendo GameCube": "gamecube.ico",
+        "Sega Genesis": "genesis.svg",
+        "Sega Mega Drive": "megadrive.ico",
+        "Sega Master System": "mastersystem.ico",
+        "Nintendo 64": "n64.svg",
+        "Nintendo DS": "nds.svg",
+        "Neo Geo": "neogeo.ico",
+        "Nintendo Entertainment System": "nes.svg",
+        "PC Engine": "pcengine.ico",
+        "TurboGrafx-16": "turbografx.ico",
+        "Sony PlayStation 1": "psx.svg",
+        "Sony PlayStation 2": "ps2.svg",
+        "Sony PlayStation 3": "ps3.svg",
+        "Sony PlayStation 4": "ps4.svg",
+        "Sony PlayStation Portable": "psp.ico",
+        "Sony PlayStation Vita": "psvita.svg",
+        "Sega Saturn": "saturn.ico",
+        "Sega 32X": "32x.svg",
+        "Sega CD": "segacd.ico",
+        "Super Nintendo": "snes.svg",
+        "Super Famicom": "snes.svg",
+        "Nintendo Switch": "switch.svg",
+        "Nintendo Wii": "wii.svg",
+        "Nintendo Wii U": "wiiu.svg",
+        "Microsoft Xbox": "xbox.svg",
+        "Microsoft Xbox 360": "xbox360.svg",
+      };
+      const platform = g.platform.replace(" Live Arcade", "");
+      const file = ICONS[platform];
+      if (!file) return "";
+      const url = `https://raw.githubusercontent.com/rommapp/romm/master/frontend/assets/platforms/${file}`;
+      return `<div style="background:rgba(0,0,0,0.55);border-radius:8px;padding:4px 6px;
+                          display:flex;align-items:center;justify-content:center;">
+                <img src="${url}" title="${g.emulator || platform}"
+                     onerror="this.parentElement.style.display='none';"
+                     style="width:26px;height:26px;object-fit:contain;">
+              </div>`;
+    ]]]
+style:
+  custom_fields:
+    bg:
+      - position: absolute
+      - top: 0
+      - left: 0
+      - right: 0
+      - bottom: 0
+      - z-index: 0
+    content:
+      - position: absolute
+      - top: 0
+      - left: 0
+      - right: 0
+      - bottom: 0
+      - z-index: 1
+    controller:
+      - position: absolute
+      - bottom: 10px
+      - right: 10px
+      - z-index: 2
