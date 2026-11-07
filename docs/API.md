@@ -22,7 +22,7 @@ or, for contexts that can't set headers (HA `picture-entity`, `<img>` tags):
 ### `GET /api/health` (no auth)
 
 ```json
-{ "ok": true, "version": "0.1.0" }
+{ "ok": true, "version": "0.1.1" }
 ```
 
 ### `GET /api/state`

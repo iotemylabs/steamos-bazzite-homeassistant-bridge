@@ -32,7 +32,8 @@ curl -fsSL https://raw.githubusercontent.com/iotemylabs/steamos-bazzite-homeassi
 ```
 
 The installer asks for your MQTT broker and device name, installs the daemon
-with pipx/uv, and enables the `steamdeck-bridge` user service. Non-interactive:
+with uv on a uv-managed Python (so OS Python upgrades can't break it), and
+enables the `steamdeck-bridge` user service. Non-interactive:
 
 ```bash
 ./install.sh --mqtt-host 10.0.0.5 --mqtt-user ha --mqtt-pass secret \

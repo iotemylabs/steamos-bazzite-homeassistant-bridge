@@ -9,6 +9,14 @@
 #   ./install.sh --uninstall
 #
 # Everything is user-level: no root, no rpm-ostree layering, survives OS updates.
+#
+# The daemon is installed with `uv tool install` using a uv-managed Python
+# (downloaded into ~/.local/share/uv/python) rather than the OS interpreter.
+# A pipx venv symlinks /usr/bin/python3.X, so every Fedora/SteamOS base bump
+# that drops the old minor version leaves the service failing with
+# "status=203/EXEC ... No such file or directory". A uv-managed interpreter
+# lives in $HOME and survives those updates. Override the version with
+# SDB_PYTHON=3.12 if needed.
 set -euo pipefail
 
 REPO_URL="https://github.com/iotemylabs/steamos-bazzite-homeassistant-bridge"
@@ -18,6 +26,8 @@ CONFIG_FILE="${CONFIG_DIR}/config.toml"
 UNIT_DIR="${HOME}/.config/systemd/user"
 UNIT_FILE="${UNIT_DIR}/steamdeck-bridge.service"
 SERVICE="steamdeck-bridge"
+PYTHON_VERSION="${SDB_PYTHON:-3.13}"
+PIPX_VENV="${HOME}/.local/share/pipx/venvs/steamdeck-bridge"
 
 MQTT_HOST="" MQTT_USER="" MQTT_PASS="" DEVICE_ID="" DEVICE_NAME=""
 NO_MQTT=0 UNINSTALL=0 NONINTERACTIVE=0
@@ -46,11 +56,15 @@ if [[ $UNINSTALL -eq 1 ]]; then
     systemctl --user disable --now "${SERVICE}" 2>/dev/null || true
     rm -f "${UNIT_FILE}"
     systemctl --user daemon-reload || true
-    if command -v pipx >/dev/null 2>&1 && pipx list 2>/dev/null | grep -q steamdeck-bridge; then
-        pipx uninstall steamdeck-bridge
-    elif command -v uv >/dev/null 2>&1; then
+    if command -v uv >/dev/null 2>&1; then
         uv tool uninstall steamdeck-bridge 2>/dev/null || true
     fi
+    if [[ -d "${PIPX_VENV}" ]]; then
+        # Legacy pipx install (pre-uv). pipx itself may be broken by the same
+        # Python bump, so fall back to removing the venv by hand.
+        pipx uninstall steamdeck-bridge 2>/dev/null || rm -rf "${PIPX_VENV}"
+    fi
+    rm -f "${HOME}/.local/bin/steamdeck-bridge"
     info "Left ${CONFIG_DIR} and ~/.cache/steamdeck-bridge in place (remove manually if desired)"
     exit 0
 fi
@@ -71,20 +85,32 @@ else
     info "Installing from ${PKG_SPEC}"
 fi
 
-if command -v pipx >/dev/null 2>&1; then
-    pipx install --force "${PKG_SPEC}"
-elif command -v uv >/dev/null 2>&1; then
-    uv tool install --force "${PKG_SPEC}"
-else
-    info "Neither pipx nor uv found; bootstrapping pipx with pip --user"
-    python3 -m pip install --user pipx || die "could not install pipx; install pipx or uv and re-run"
-    python3 -m pipx ensurepath || true
-    export PATH="${HOME}/.local/bin:${PATH}"
-    pipx install --force "${PKG_SPEC}"
+export PATH="${HOME}/.local/bin:${PATH}"
+if ! command -v uv >/dev/null 2>&1; then
+    # uv is a static binary with no Python dependency, so it can't be broken
+    # by an OS Python bump the way a pip-installed pipx can.
+    info "uv not found; installing the standalone uv binary to ~/.local/bin"
+    command -v curl >/dev/null 2>&1 || die "curl is required to download uv"
+    curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh \
+        || die "could not install uv; see https://docs.astral.sh/uv/getting-started/installation/"
+    command -v uv >/dev/null 2>&1 || die "uv installed but not on PATH; expected ~/.local/bin/uv"
 fi
 
+# Migrate a legacy pipx install so its dangling symlink doesn't shadow the
+# uv-managed entry point. pipx itself may be broken, hence the rm fallback.
+if [[ -d "${PIPX_VENV}" ]]; then
+    info "Removing legacy pipx install (replaced by uv-managed Python)"
+    pipx uninstall steamdeck-bridge 2>/dev/null || rm -rf "${PIPX_VENV}"
+    rm -f "${HOME}/.local/bin/steamdeck-bridge"
+fi
+
+info "Installing with uv-managed Python ${PYTHON_VERSION}"
+uv tool install --force --reinstall \
+    --python "${PYTHON_VERSION}" --python-preference only-managed \
+    "${PKG_SPEC}"
+
 BIN="${HOME}/.local/bin/steamdeck-bridge"
-[[ -x "${BIN}" ]] || die "expected ${BIN} after install; check pipx/uv output above"
+[[ -x "${BIN}" ]] || die "expected ${BIN} after install; check uv output above"
 
 # ------------------------------------------------------------------- config --
 if [[ -f "${CONFIG_FILE}" ]]; then

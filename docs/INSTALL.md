@@ -13,10 +13,8 @@ curl -fsSL https://raw.githubusercontent.com/iotemylabs/steamos-bazzite-homeassi
 
 or from a checkout: `./install.sh`.
 
-> **Private repo?** The raw URL above requires the repository to be public.
-> While it's private, clone with authenticated git and run the script locally:
-> `git clone https://github.com/iotemylabs/steamos-bazzite-homeassistant-bridge.git && cd steamos-bazzite-homeassistant-bridge && ./install.sh`
-> (the script detects the checkout and installs from it directly).
+From a checkout the script installs the local tree instead of the GitHub URL,
+so development installs pick up uncommitted changes.
 
 Flags for automation:
 
@@ -29,17 +27,29 @@ Flags for automation:
 --uninstall           stop + remove the service and package
 ```
 
-The script installs via pipx (or uv), writes
+The script installs the daemon with `uv tool install` using a **uv-managed
+Python** (downloaded into `~/.local/share/uv/python`), writes
 `~/.config/steamdeck-bridge/config.toml` (kept if it already exists), installs
 the systemd user unit, starts it, and prints the API token. Re-running is safe —
-it upgrades in place.
+it upgrades in place, and it migrates an older pipx-based install automatically.
+
+Why uv-managed Python: a pipx venv symlinks `/usr/bin/python3.X`. SteamOS and
+Bazzite base updates periodically drop the old minor version (3.14 → 3.15 in
+Bazzite 45.20261105, for example), which leaves that symlink dangling and the
+service crash-looping with `status=203/EXEC`. An interpreter that lives in
+`$HOME` is untouched by OS updates. Set `SDB_PYTHON=3.12` (or similar) before
+running the script to pick a different version; the default is 3.13.
 
 ## Manual install
 
 ```bash
-# 1. Install (pipx ships on both SteamOS and Bazzite; uv also works)
-pipx install "git+https://github.com/iotemylabs/steamos-bazzite-homeassistant-bridge.git"
-# from a git checkout instead:  pipx install /path/to/checkout
+# 1. Install uv (static binary, no Python dependency), then the daemon with a
+#    uv-managed interpreter so OS Python upgrades can't break it
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv tool install --python 3.13 --python-preference only-managed \
+    "git+https://github.com/iotemylabs/steamos-bazzite-homeassistant-bridge.git"
+# from a git checkout instead:  uv tool install --python 3.13 --python-preference only-managed /path/to/checkout
+# pipx also works, but its venv breaks on every OS Python bump (see Troubleshooting)
 
 # 2. Configure
 mkdir -p ~/.config/steamdeck-bridge
@@ -62,11 +72,9 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8480/api/state
 Notes:
 
 - **SteamOS**: user services keep running in both Gaming and Desktop Mode.
-  `pipx` is preinstalled on SteamOS 3.5+; on older builds
-  `python -m pip install --user pipx` first.
-- **Bazzite**: everything above works as-is; `uv` is preinstalled on recent
-  images. Do **not** use `rpm-ostree install` for this — user-level install is
-  the point.
+  The read-only root is fine; everything lands in `~/.local`.
+- **Bazzite**: everything above works as-is. Do **not** use `rpm-ostree install`
+  for this — user-level install is the point.
 - **Gaming Mode**: the service reads gamescope's X display; no Decky Loader
   required.
 - To keep the device from suspending while HA needs it awake, that's a Steam
@@ -98,7 +106,8 @@ deck.example.lan {
 Re-run the install script (safe, keeps your config), or manually:
 
 ```bash
-pipx install --force "git+https://github.com/iotemylabs/steamos-bazzite-homeassistant-bridge.git"
+uv tool install --force --reinstall --python 3.13 --python-preference only-managed \
+    "git+https://github.com/iotemylabs/steamos-bazzite-homeassistant-bridge.git"
 systemctl --user restart steamdeck-bridge
 ```
 
@@ -107,7 +116,7 @@ systemctl --user restart steamdeck-bridge
 ```bash
 systemctl --user disable --now steamdeck-bridge
 rm ~/.config/systemd/user/steamdeck-bridge.service
-pipx uninstall steamdeck-bridge
+uv tool uninstall steamdeck-bridge
 rm -rf ~/.config/steamdeck-bridge ~/.cache/steamdeck-bridge
 ```
 
@@ -115,6 +124,7 @@ rm -rf ~/.config/steamdeck-bridge ~/.cache/steamdeck-bridge
 
 | Symptom | Check |
 |---|---|
+| Service crash-loops with `status=203/EXEC`, "No such file or directory" after an OS update | The OS dropped the Python minor version a pipx venv pointed at. Re-run `install.sh` (migrates to a uv-managed Python), or `pipx reinstall-all` if you must stay on pipx. |
 | No entities in HA | `journalctl --user -u steamdeck-bridge` — MQTT credentials/host; broker reachable? |
 | Game not detected in Gaming Mode | `xprop -root -display :1 GAMESCOPE_FOCUSED_APP` from Desktop Mode SSH |
 | Game not detected in Desktop Mode | `pgrep -af 'SteamLaunch AppId='` should show the reaper line |
